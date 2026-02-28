@@ -43,3 +43,11 @@ This document defines the functional and non-functional requirements for the Che
 1. Where the payment method requires 3D Secure authentication, the Checkout Service shall redirect the user to the bank's authentication page or display an authentication challenge.
 2. When the 3D Secure authentication is successful, the Checkout Service shall proceed with the final payment processing and order creation.
 3. If the 3D Secure authentication fails or is cancelled by the user, then the Checkout Service shall return the user to the payment stage with an appropriate error message.
+
+### 6. SMS Purchase Confirmation
+**Objective:** As a customer, I want to receive an SMS confirmation after a successful purchase, so that I have an immediate record of my order on my mobile phone.
+
+#### Acceptance Criteria
+1. When an order is successfully created and paid, the Notification Service shall send an SMS message to the customer's provided phone number.
+2. The SMS message shall contain the order confirmation number and a brief thank you message.
+3. If the SMS delivery fails, then the system shall log the error for monitoring but shall not affect the customer's checkout completion experience.
