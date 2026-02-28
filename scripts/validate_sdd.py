@@ -45,8 +45,7 @@ def validate_specs():
                 errors.append(f"❌ {feature}: Tasks generated but tasks.md is missing")
 
     if errors:
-        print("
-".join(errors))
+        print("\n".join(errors))
         return False
     
     print("✅ All specifications are valid!")

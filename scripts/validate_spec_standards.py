@@ -19,8 +19,7 @@ def validate_ears_syntax(content):
     if "#### Acceptance Criteria" not in content:
         return []
 
-    lines = content.split('
-')
+    lines = content.split('\n')
     in_criteria = False
     errors = []
 
@@ -43,15 +42,12 @@ def validate_mermaid_blocks(content):
     Verifica se os blocos Mermaid possuem um tipo de diagrama válido no início.
     """
     errors = []
-    mermaid_blocks = re.findall(r"```mermaid
-(.*?)
-```", content, re.DOTALL)
+    mermaid_blocks = re.findall(r"```mermaid\n(.*?)\n```", content, re.DOTALL)
     
     valid_types = ["graph", "flowchart", "sequenceDiagram", "classDiagram", "stateDiagram", "erDiagram", "gantt", "pie", "gitGraph"]
     
     for block in mermaid_blocks:
-        first_line = block.strip().split('
-')[0].split()[0]
+        first_line = block.strip().split('\n')[0].split()[0]
         if not any(first_line.startswith(t) for t in valid_types):
             errors.append(f"Invalid Mermaid diagram type: '{first_line}'")
             
@@ -87,14 +83,11 @@ def main():
                     all_errors.extend([f"{file_path}: {e}" for e in mermaid_errors])
 
     if all_errors:
-        print("
-❌ Validation Failed:")
-        print("
-".join(all_errors))
+        print("\n❌ Validation Failed:")
+        print("\n".join(all_errors))
         sys.exit(1)
     
-    print("
-✅ All specifications passed EARS and Mermaid validation!")
+    print("\n✅ All specifications passed EARS and Mermaid validation!")
 
 if __name__ == "__main__":
     main()

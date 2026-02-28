@@ -43,8 +43,7 @@ def check_sync():
                 errors.append(f"❌ Feature '{feature}': Implementation changed in 'src/{feature}/' but no changes found in '.sdd/specs/{feature}/'. Please update your specifications.")
 
     if errors:
-        print("
-".join(errors))
+        print("\n".join(errors))
         return False
 
     print("✅ All implementation changes are synced with specifications.")
