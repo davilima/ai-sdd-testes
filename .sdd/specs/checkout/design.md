@@ -27,7 +27,10 @@ flowchart TB
     AuthService[Auth Service]
     ShippingService[Shipping Service]
     PaymentGateway[Payment Gateway]
+    NotificationWorker[Notification Worker]
+    TwilioAPI[Twilio SMS API]
     OrderDB[Order Database]
+    Queue[Task Queue]
 
     Client --> CheckoutAPI
     CheckoutAPI --> CheckoutService
@@ -35,6 +38,9 @@ flowchart TB
     CheckoutService --> ShippingService
     CheckoutService --> PaymentGateway
     CheckoutService --> OrderDB
+    CheckoutService --> Queue
+    Queue --> NotificationWorker
+    NotificationWorker --> TwilioAPI
 ```
 
 
@@ -46,8 +52,28 @@ flowchart TB
 | Backend  | Node.js (Express) | API and Business Logic              |
 | Data     | PostgreSQL        | Order and Transaction Persistence   |
 | Auth     | JWT / OAuth2      | User Identification                 |
+| Messaging| Twilio            | SMS Purchase Notifications          |
+| Wallet   | Apple Pay         | Fast checkout for iOS/macOS users   |
 
-### Payment Flow with Tokenization and 3D Secure
+### Apple Pay Integration Flow
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend Client
+    participant A as Apple Pay API
+    participant C as Checkout Service
+    participant P as Payment Provider
+
+    U->>F: Select Apple Pay
+    F->>A: Initiate Payment Sheet
+    A-->>U: Present Payment Sheet
+    U->>A: Authorize (Biometrics/Passcode)
+    A-->>F: Return Apple Pay Token
+    F->>C: POST /confirm (with Apple Pay Token)
+    C->>P: Request Auth (using Apple Pay Token)
+    P-->>C: Payment Result
+    C-->>F: Order Confirmation
+```
 ```mermaid
 sequenceDiagram
     participant U as User
@@ -83,6 +109,7 @@ sequenceDiagram
 | 3.1         | Saved Data    | CheckoutService    | IUserService     | Shipping Flow |
 | 4.1         | Order Summary | SummaryComponent   | IOrderService    | Summary Flow  |
 | 5.1         | 3DS Challenge | PaymentComponent   | IPaymentGateway  | 3DS Flow      |
+| 7.1         | Apple Pay     | PaymentComponent   | IApplePayAPI     | Apple Pay Flow|
 
 ## Components and Interfaces
 
@@ -108,8 +135,8 @@ interface CheckoutService {
   // Re-validates cart prices and inventory upon start
   startCheckout(cartId: string): Promise<CheckoutSession>;
   setShippingInfo(sessionId: string, info: ShippingDetails): Promise<CheckoutSession>;
-  // Uses paymentMethodToken (PCI compliance)
-  processPayment(sessionId: string, paymentToken: string): Promise<OrderResult | TDSRedirect>;
+  // Uses paymentMethodToken (PCI compliance) or Apple Pay token
+  processPayment(sessionId: string, paymentToken: string, provider: 'standard' | 'apple_pay'): Promise<OrderResult | TDSRedirect>;
   finalize3DS(sessionId: string, tdsToken: string): Promise<OrderResult>;
 }
 ```
@@ -119,7 +146,7 @@ interface CheckoutService {
 | ------ | -------------------------- | --------------- | --------------- | -------- |
 | POST   | /api/checkout/start        | { cartId }      | CheckoutSession | 400, 404 |
 | PUT    | /api/checkout/:id/shipping | ShippingDetails | UpdatedSession  | 400, 422 |
-| POST   | /api/checkout/:id/confirm  | { paymentToken }| OrderReceipt or { challengeUrl } | 402, 500 |
+| POST   | /api/checkout/:id/confirm  | { paymentToken, provider }| OrderReceipt or { challengeUrl } | 402, 500 |
 | POST   | /api/checkout/:id/3ds      | { tdsToken }    | OrderReceipt    | 402, 500 |
 
 ## Data Models
@@ -146,15 +173,31 @@ interface CheckoutService {
 - **Integration Tests**: Verify end-to-end flow from `startCheckout` to `processPayment` with a mock Payment Gateway.
 - **UI Tests**: Test the authentication toggle (Login vs Guest) on the frontend.
 
+## Performance & Scalability
+
+### 1. Latency Targets
+- **Target Response Time**: < 3 seconds for all critical endpoints (`/start`, `/shipping`, `/confirm`).
+- **Baseline**: Current architectural estimate is ~10s due to sequential external calls.
+
+### 2. Optimization Strategies
+- **Parallel Service Invocations**: Use concurrent requests for Shipping calculation, Tax calculation, and Inventory validation during the shipping stage.
+- **Cache-Aside Pattern**: Utilize a high-performance cache (Redis) for product price and metadata re-validation to avoid heavy database load.
+- **Asynchronous Fulfillment**: Move non-critical post-payment tasks (e.g., Email notifications, ERP synchronization, Analytics) to background workers.
+- **Connection Pooling**: Implement persistent HTTP connections (Keep-alive) for high-traffic external dependencies (Payment Gateway).
+
 ## Security Considerations
 
-### 1. Payment Security (PCI DSS)
-The system uses a tokenization approach. Card data is sent directly from the client to the payment provider. The `CheckoutService` only handles ephemeral payment tokens, ensuring no sensitive cardholder data is stored or processed on the server.
+### 1. Payment Security (PCI DSS & Wallets)
+The system uses a tokenization approach. Card data is sent directly from the client to the payment provider. The `CheckoutService` only handles ephemeral payment tokens (Standard or Apple Pay), ensuring no sensitive cardholder data is stored or processed on the server. For Apple Pay, the system validates the domain and certificate association to ensure secure transmission.
 
-### 2. Data Integrity
-- **Price Re-validation**: The `CheckoutService.startCheckout` method MUST fetch current product prices and stock from the master database/service, ignoring any values provided by the client's cart state to prevent price manipulation.
-- **Session Binding**: `CheckoutSession` IDs must be non-predictable (UUID v4) and bound to the authenticated user ID or a secure browser session token.
+### 2. Data Integrity & Authorization
+- **Price & Cart Ownership**: The `CheckoutService.startCheckout` method MUST verify that the `cartId` belongs to the requesting user and fetch current product prices from the master database, ignoring client-provided values.
+- **Atomic Inventory Checks**: Use database-level locking (`SELECT FOR UPDATE`) or distributed locks (Redis) during the confirmation phase to prevent over-selling in race condition scenarios.
+- **Session Binding**: `CheckoutSession` IDs must be non-predictable (UUID v4) and strictly bound to the authenticated user ID or secure session cookie.
 
-### 3. Fraud Prevention
-- **Rate Limiting**: Apply rate limiting on `/confirm` and `/shipping` endpoints to prevent brute-force enumeration of valid email addresses or brute-force payment attempts.
-- **Idempotency**: All payment confirmation and 3DS completion requests must use an idempotency key to prevent double charging on retry scenarios.
+### 3. Fraud & Resiliency
+- **3DS State Gating**: The final order creation MUST be blocked unless the `CheckoutSession` status is explicitly `3DS_AUTHENTICATED`.
+- **Circuit Breakers**: Implement circuit breakers and strict timeouts (e.g., 2s) for all parallel outbound calls (Shipping, Tax, Payment) to prevent resource exhaustion during external service degradation.
+- **Rate Limiting & Idempotency**: Apply rate limiting on all checkout endpoints and require an idempotency key for payment processing.
+- **PII Protection**: Ensure PII (email, address, phone number) is masked in application logs and transit to Twilio follows TLS standards.
+- **Webhook Security**: If Twilio callbacks are used, verify Twilio signatures to ensure authenticity.
