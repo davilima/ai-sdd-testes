@@ -1,0 +1,27 @@
+name: SDD Standards Validation
+
+on:
+  pull_request:
+    paths:
+      - '.sdd/specs/**'
+
+jobs:
+  validate-standards:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Run EARS & Mermaid Validation
+        run: python scripts/validate_spec_standards.py
+
+      - name: Check Spec-Code Synchronization
+        run: python scripts/check_spec_sync.py
+
+      - name: Full SDD Integrity Check
+        run: python scripts/validate_sdd.py
