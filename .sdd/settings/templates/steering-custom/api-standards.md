@@ -65,5 +65,10 @@ Authorization: Bearer {token}
 - Sorting: `sort=field:asc|desc`
 Return pagination metadata in `meta`.
 
+## Documentation & Testing
+- **Insomnia Collections**: All REST APIs must include an exported Insomnia collection (`.json` or `.yaml`) within the repository (e.g., in a `docs/insomnia/` folder).
+- **Environment Variables**: The collection must use environment variables for base URLs, tokens, and common IDs to facilitate testing across different environments (local, staging, prod).
+- **Test Coverage**: Each endpoint must have at least one success request and one error request documented in the collection.
+
 ---
 _Focus on patterns and decisions, not endpoint catalogs._
