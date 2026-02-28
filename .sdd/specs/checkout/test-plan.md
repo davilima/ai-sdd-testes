@@ -29,11 +29,13 @@ This test plan defines the strategy, test cases, and pass/fail criteria for the 
 - **TC-3.1**: Verify pre-filling of saved shipping addresses for authenticated users.
 - **TC-3.2**: Verify automatic shipping cost update when a saved address is selected.
 
-### 3.4 Payment & 3D Secure (Req 4.x, 5.x)
+### 3.4 Payment & 3D Secure (Req 4.x, 5.x, 7.x)
 - **TC-4.1**: Verify successful payment using a secure payment token.
 - **TC-4.2**: Verify 3DS challenge redirection when triggered by the bank.
 - **TC-4.3**: Verify order creation is BLOCKED if 3DS challenge is bypassed or cancelled.
 - **TC-4.4**: Verify idempotent behavior: retrying a payment confirmation does not result in double charging.
+- **TC-4.5**: Verify Apple Pay button is displayed ONLY on supported devices.
+- **TC-4.6**: Verify successful payment via Apple Pay with proper token processing.
 
 ### 3.5 Fulfillment & Notifications (Req 6.x)
 - **TC-5.1**: Verify that a unique Order ID is generated upon successful completion.

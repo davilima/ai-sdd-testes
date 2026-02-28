@@ -44,10 +44,11 @@ This document defines the functional and non-functional requirements for the Che
 2. When the 3D Secure authentication is successful, the Checkout Service shall proceed with the final payment processing and order creation.
 3. If the 3D Secure authentication fails or is cancelled by the user, then the Checkout Service shall return the user to the payment stage with an appropriate error message.
 
-### 6. SMS Purchase Confirmation
-**Objective:** As a customer, I want to receive an SMS confirmation after a successful purchase, so that I have an immediate record of my order on my mobile phone.
+### 7. Apple Pay Integration
+**Objective:** As an iOS or macOS user, I want to use Apple Pay to complete my purchase, so that I can enjoy a fast and secure payment experience without manually entering card details.
 
 #### Acceptance Criteria
-1. When an order is successfully created and paid, the Notification Service shall send an SMS message to the customer's provided phone number.
-2. The SMS message shall contain the order confirmation number and a brief thank you message.
-3. If the SMS delivery fails, then the system shall log the error for monitoring but shall not affect the customer's checkout completion experience.
+1. Where the user's device supports Apple Pay, the Checkout Service shall display the Apple Pay button as a payment option.
+2. When the user selects Apple Pay, the system shall initiate the Apple Pay payment sheet and collect authorization from the user's device.
+3. The Checkout Service shall process the Apple Pay payment token securely through the Payment Gateway.
+4. If the Apple Pay transaction is cancelled or fails, then the system shall return the user to the payment selection stage with an appropriate message.
